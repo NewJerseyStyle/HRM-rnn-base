@@ -92,6 +92,8 @@ class CastedLinear(nn.Module):
                  out_features: int,
                  bias: bool):
         super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
         # Truncated LeCun normal init
         self.weight = nn.Parameter(
             trunc_normal_init_(torch.empty((out_features, in_features)), std=1.0 / (in_features ** 0.5))
@@ -100,6 +102,13 @@ class CastedLinear(nn.Module):
         if bias:
             # Zero init bias
             self.bias = nn.Parameter(torch.zeros((out_features, )))
+
+    def reset_parameters(self):
+        """Reset parameters to their initial values."""
+        std = 1.0 / (self.in_features ** 0.5)
+        self.weight.data = trunc_normal_init_(torch.empty_like(self.weight), std=std)
+        if self.bias is not None:
+            self.bias.data.zero_()
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return F.linear(input, self.weight.to(input.dtype), bias=self.bias.to(input.dtype) if self.bias is not None else None)

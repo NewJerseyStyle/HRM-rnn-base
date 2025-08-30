@@ -53,8 +53,14 @@ def elementwise_recurrence_naive(
         reset_wc = weight_c[..., 1]
     else:
         forget_wc, reset_wc = weight_c.view(2, bidir, d)
+        # Ensure weight_c is on the same device as U
+        forget_wc = forget_wc.to(U.device)
+        reset_wc = reset_wc.to(U.device)
 
     forget_bias, reset_bias = bias.view(2, bidir, d)
+    # Ensure bias is on the same device as U
+    forget_bias = forget_bias.to(U.device)
+    reset_bias = reset_bias.to(U.device)
 
     if not has_skip_term:
         x_prime = None

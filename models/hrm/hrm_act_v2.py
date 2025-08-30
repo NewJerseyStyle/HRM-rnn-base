@@ -138,8 +138,14 @@ class HierarchicalReasoningModel_ACTV2_Inner(nn.Module):
         input_embeddings = self._input_embeddings(batch["inputs"], batch["puzzle_identifiers"])
 
         # Forward iterations
-        z_L, z_L_hidden = self.L_level(input_embeddings, carry.z_L)
+        # SRU expects (seq_len, batch_size, hidden_size) format
+        input_embeddings_transposed = input_embeddings.transpose(0, 1)
+        z_L, z_L_hidden = self.L_level(input_embeddings_transposed, carry.z_L)
         z_H, z_H_hidden = self.H_level(z_L, carry.z_H)
+        
+        # Transpose back to (batch_size, seq_len, hidden_size)
+        z_L = z_L.transpose(0, 1)
+        z_H = z_H.transpose(0, 1)
 
         # LM Outputs
         new_carry = HierarchicalReasoningModel_ACTV2InnerCarry(z_H=z_H_hidden.detach(), z_L=z_L_hidden.detach())  # New carry no grad
