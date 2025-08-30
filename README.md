@@ -1,5 +1,7 @@
 # Hierarchical Reasoning Model
 
+> ⚠️ Due to hardware constraint this repository is using adam-atan2 implemented in standard Pytorch operators which is not the optimized implemention used in the original HRM repository.
+
 ![](./assets/hrm.png)
 
 Reasoning, the process of devising and executing complex goal-oriented action sequences, remains a critical challenge in AI.
