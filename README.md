@@ -1,6 +1,4 @@
-# Hierarchical Reasoning Model
-
-> ⚠️ Due to hardware constraint this repository is using adam-atan2 implemented in standard Pytorch operators which is not the optimized implemention used in the original HRM repository.
+# Hierarchical Reasoning Model with Simple Recurrent Unit (SRU)
 
 ![](./assets/hrm.png)
 
@@ -8,13 +6,26 @@ Reasoning, the process of devising and executing complex goal-oriented action se
 Current large language models (LLMs) primarily employ Chain-of-Thought (CoT) techniques, which suffer from brittle task decomposition, extensive data requirements, and high latency. Inspired by the hierarchical and multi-timescale processing in the human brain, we propose the Hierarchical Reasoning Model (HRM), a novel recurrent architecture that attains significant computational depth while maintaining both training stability and efficiency.
 HRM executes sequential reasoning tasks in a single forward pass without explicit supervision of the intermediate process, through two interdependent recurrent modules: a high-level module responsible for slow, abstract planning, and a low-level module handling rapid, detailed computations. With only 27 million parameters, HRM achieves exceptional performance on complex reasoning tasks using only 1000 training samples. The model operates without pre-training or CoT data, yet achieves nearly perfect performance on challenging tasks including complex Sudoku puzzles and optimal path finding in large mazes.
 Furthermore, HRM outperforms much larger models with significantly longer context windows on the Abstraction and Reasoning Corpus (ARC), a key benchmark for measuring artificial general intelligence capabilities.
-These results underscore HRM’s potential as a transformative advancement toward universal computation and general-purpose reasoning systems.
+These results underscore HRM's potential as a transformative advancement toward universal computation and general-purpose reasoning systems.
+
+## 🔬 SRU Experimental Version
+
+This fork implements the **Simple Recurrent Unit (SRU)** as an alternative to the transformer layers in the original HRM architecture. Key modifications include:
+
+- **SRU Integration**: Replaced transformer-based H_level and L_level modules with SRU layers for potentially improved sequential processing
+- **Enhanced Compatibility**: Added fallback implementations for hardware compatibility issues
+- **Mixed Precision Support**: Proper dtype handling for bfloat16/float32 training
 
 ## Quick Start Guide 🚀
 
 ### Prerequisites ⚙️
 
-Ensure PyTorch and CUDA are installed. The repo needs CUDA extensions to be built. If not present, run the following commands:
+⚠️ **Hardware Compatibility Notice**: This SRU version includes fallback implementations for better hardware compatibility:
+
+- **Flash Attention**: Falls back to standard PyTorch attention if flash-attn CUDA kernels are incompatible
+- **Adam-Atan2**: Uses pure PyTorch implementation (`adam-atan2-pytorch`) instead of CUDA-optimized version due to potential kernel compatibility issues
+
+Ensure PyTorch and CUDA are installed. While CUDA extensions are recommended for optimal performance, the fallbacks ensure the code runs on various hardware configurations:
 
 ```bash
 # Install CUDA 12.6
@@ -118,6 +129,38 @@ Explore the puzzles visually:
 
 ## Launch experiments
 
+### Multi-GPU Training 🔥
+
+The codebase supports distributed training across multiple GPUs using PyTorch's `torchrun`. The training automatically detects the distributed environment and scales accordingly.
+
+**Single GPU:**
+```bash
+python pretrain.py [args...]
+```
+
+**Multiple GPUs (recommended for full-scale experiments):**
+```bash
+# Use all available GPUs
+torchrun --nproc-per-node=$(nvidia-smi -L | wc -l) pretrain.py [args...]
+
+# Use specific number of GPUs (e.g., 4 GPUs)
+torchrun --nproc-per-node=4 pretrain.py [args...]
+
+# For 8 GPUs (as in original experiments)
+OMP_NUM_THREADS=8 torchrun --nproc-per-node=8 pretrain.py [args...]
+```
+
+**Environment Variables:**
+- `OMP_NUM_THREADS`: Controls CPU threading (recommended: number of GPUs)
+- `CUDA_VISIBLE_DEVICES`: Restricts which GPUs to use (e.g., `CUDA_VISIBLE_DEVICES=0,1,2,3`)
+
+### Train SRU
+By changing argument passed to the training script
+```bash
+python pretrain.py arch=hrm_v2 # experiment2 for SRU
+python pretrain.py arch=hrm_v3 # experiment3 for SRU++
+```
+
 ### Small-sample (1K)
 
 ARC-1:
@@ -174,6 +217,20 @@ OMP_NUM_THREADS=8 torchrun --nproc-per-node 8 evaluate.py checkpoint=<CHECKPOINT
 * Then use the provided `arc_eval.ipynb` notebook to finalize and inspect your results.
 
 ## Notes
+
+### SRU Implementation Details
+
+ - **Architecture**: The SRU layers replace the transformer-based reasoning modules in the original HRM, potentially offering better sequential modeling for hierarchical reasoning tasks
+ - **Memory Efficiency**: SRU has lower memory requirements compared to self-attention mechanisms, enabling training on hardware with limited GPU memory
+ - **Performance**: While SRU may have different convergence characteristics compared to transformers, it maintains the core hierarchical reasoning capabilities
+
+### Hardware Compatibility
+
+ - **Optimizer Fallback**: Due to CUDA kernel compatibility issues, this version uses `adam-atan2-pytorch` (pure PyTorch) instead of the optimized CUDA version. This ensures broader hardware compatibility but may result in slightly slower optimization steps
+ - **Flash Attention Fallback**: If flash-attn is not available or incompatible, the code automatically falls back to standard PyTorch attention implementation
+ - **Mixed Precision**: Proper dtype casting ensures compatibility across different precision settings (float32, bfloat16)
+
+### Training Notes
 
  - Small-sample learning typically exhibits accuracy variance of around ±2 points.
  - For Sudoku-Extreme (1,000-example dataset), late-stage overfitting may cause numerical instability during training and Q-learning. It is advisable to use early stopping once the training accuracy approaches 100%.
