@@ -10,6 +10,8 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.nn.utils.rnn import PackedSequence
 
+from models.layers import CastedLinear
+
 
 # --- Start of elementwise_recurrence_naive from sru/ops.py ---
 @torch.jit.unused
@@ -238,15 +240,15 @@ class SRUCell(nn.Module):
             # create an appropriate transform_module, depending on whether we are
             # using projection or not
             if self.projection_size == 0:
-                # use an nn.Linear
-                transform_module = nn.Linear(
+                # use CastedLinear for automatic dtype handling
+                transform_module = CastedLinear(
                     input_size, self.output_size * self.num_matrices, bias=False
                 )
             else:
-                # use a Sequential[nn.Linear, nn.Linear]
+                # use a Sequential[CastedLinear, CastedLinear]
                 transform_module = nn.Sequential(
-                    nn.Linear(input_size, self.projection_size, bias=False),
-                    nn.Linear(
+                    CastedLinear(input_size, self.projection_size, bias=False),
+                    CastedLinear(
                         self.projection_size,
                         self.output_size * self.num_matrices,
                         bias=False
@@ -361,9 +363,12 @@ class SRUCell(nn.Module):
                          mask_pad: Optional[Tensor]) -> List[Tensor]:
         """ Apply the elementwise recurrence computation on given input tensors """
 
+        # Cast bias to match U's dtype for consistency
+        bias_casted = self.bias.to(U.dtype)
+        
         # Directly call the naive implementation
         return elementwise_recurrence_naive(
-            U, residual, V, self.bias, c0, self.activation_type,
+            U, residual, V, bias_casted, c0, self.activation_type,
             self.hidden_size, self.bidirectional, self.has_skip_term,
             scale_val, mask_c, mask_pad
         )
@@ -379,15 +384,16 @@ class SRUCell(nn.Module):
         (V[t, b, d] + weight_c[d]) * c[t-1].
         """
 
+        # CastedLinear handles dtype conversion automatically
         ret = self.transform_module(input)
         if isinstance(ret, tuple) or isinstance(ret, list):
             if len(ret) > 2:
                 raise Exception("Custom module must return 1 or 2 tensors but got {}.".format(
                     len(ret)
                 ))
-            U, V = ret[0], ret[1] + self.weight_c
+            U, V = ret[0], ret[1] + self.weight_c.to(input.dtype)
         else:
-            U, V = ret, self.weight_c
+            U, V = ret, self.weight_c.to(input.dtype)
 
         if U.size(-1) != self.output_size * self.num_matrices:
             raise ValueError("U must have a last dimension of {} but got {}.".format(
