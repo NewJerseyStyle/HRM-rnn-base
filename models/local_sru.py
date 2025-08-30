@@ -31,9 +31,10 @@ def elementwise_recurrence_naive(
 ) -> List[Tensor]:
     """Elementwise forward operation of SRU in pure Python.
     """
-    if torch.is_grad_enabled():
+    # Only warn if actually running on CPU (not GPU) with gradients enabled
+    if torch.is_grad_enabled() and not U.is_cuda:
         warnings.warn("Running SRU on CPU with grad_enabled=True. Are you sure?")
-    else:
+    elif not torch.is_grad_enabled():
         # This part is for inference, which calls a JIT compiled version.
         # Since we are doing pure Python, we will just implement the loop directly.
         pass

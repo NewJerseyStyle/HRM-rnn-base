@@ -124,6 +124,17 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
     with torch.device("cuda"):
         model: nn.Module = model_cls(model_cfg)
         model = loss_head_cls(model, **config.arch.loss.__pydantic_extra__)  # type: ignore
+        
+        # Ensure model is on the correct GPU device for distributed training
+        if torch.cuda.is_available():
+            if world_size > 1 and "LOCAL_RANK" in os.environ:
+                # Use the specific GPU for this process
+                device = torch.device(f"cuda:{int(os.environ['LOCAL_RANK'])}")
+                model = model.to(device)
+            else:
+                # Single GPU or no distributed training
+                model = model.cuda()
+        
         if "DISABLE_COMPILE" not in os.environ:
             model = torch.compile(model, dynamic=False)  # type: ignore
 
