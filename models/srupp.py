@@ -1,5 +1,5 @@
 from torch import nn
-from sru import SRUpp
+from models.local_sru import SRUpp
 
 class SRUpp_(nn.Module):
     def __init__(self, hidden_size: int):

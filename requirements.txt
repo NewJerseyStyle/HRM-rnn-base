@@ -1,4 +1,4 @@
-torch>=1.6
+torch
 adam-atan2
 einops
 tqdm
@@ -9,4 +9,4 @@ wandb
 omegaconf
 hydra-core
 huggingface_hub
-git+https://github.com/asappresearch/sru.git@3.0.0-dev
+

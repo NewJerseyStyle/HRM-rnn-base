@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from pydantic import BaseModel
-from sru import SRU
+from models.local_sru import SRU
 
 from models.common import trunc_normal_init_
 from models.layers import rms_norm, SwiGLU, Attention, RotaryEmbedding, CosSin, CastedEmbedding, CastedLinear
