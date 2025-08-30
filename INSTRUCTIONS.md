@@ -11,7 +11,7 @@ The dataset preparation script `dataset/build_arc_dataset.py` processes the raw 
 
 1.  **Navigate to the project's root directory:**
     ```bash
-    cd /home/alpha/research/HRM-rnn-base
+    cd HRM-rnn-base
     ```
 
 2.  **Run the `build_arc_dataset.py` script:**
@@ -28,7 +28,7 @@ The `pretrain.py` script is used to pre-train the model.
 
 1.  **Navigate to the project's root directory:**
     ```bash
-    cd /home/alpha/research/HRM-rnn-base
+    cd HRM-rnn-base
     ```
 
 2.  **Install the required dependencies:**
