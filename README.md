@@ -189,3 +189,13 @@ OMP_NUM_THREADS=8 torchrun --nproc-per-node 8 evaluate.py checkpoint=<CHECKPOINT
       url={https://arxiv.org/abs/2506.21734}, 
 }
 ```
+
+```bibtex
+@misc{njs2025hrm-rnn-based,
+      title={Hierarchical Reasoning Model with Simple Recurrent Unit}, 
+      author={NewJerseyStyle},
+      year={2025},
+      primaryClass={cs.AI},
+      url={https://github.com/NewJerseyStyle/HRM-rnn-base}, 
+}
+```
