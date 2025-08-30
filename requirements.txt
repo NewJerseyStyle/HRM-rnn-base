@@ -1,4 +1,4 @@
-torch>=1.6,<2.0
+torch>=1.6
 adam-atan2
 einops
 tqdm
