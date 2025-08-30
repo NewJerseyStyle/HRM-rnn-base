@@ -11,7 +11,7 @@ from models.local_sru import SRU
 from models.common import trunc_normal_init_
 from models.layers import rms_norm, SwiGLU, Attention, RotaryEmbedding, CosSin, CastedEmbedding, CastedLinear
 from models.sparse_embedding import CastedSparseEmbedding
-from models.local_sru import SRUpp_
+from models.srupp import SRUpp_
 
 
 @dataclass
@@ -22,7 +22,7 @@ class HierarchicalReasoningModel_ACTV3InnerCarry:
 
 @dataclass
 class HierarchicalReasoningModel_ACTV3Carry:
-    inner_carry: HierarchicalReasoningModel_ACTV2InnerCarry
+    inner_carry: HierarchicalReasoningModel_ACTV3InnerCarry
     
     steps: torch.Tensor
     halted: torch.Tensor
@@ -57,7 +57,7 @@ class HierarchicalReasoningModel_ACTV3Config(BaseModel):
 
 
 class HierarchicalReasoningModel_ACTV3_Inner(nn.Module):
-    def __init__(self, config: HierarchicalReasoningModel_ACTV2Config) -> None:
+    def __init__(self, config: HierarchicalReasoningModel_ACTV3Config) -> None:
         super().__init__()
         self.config = config
         self.forward_dtype = getattr(torch, self.config.forward_dtype)
@@ -87,8 +87,8 @@ class HierarchicalReasoningModel_ACTV3_Inner(nn.Module):
             raise NotImplementedError()
 
         # Reasoning Layers
-        self.H_level = SRUpp_(self.config.hidden_size)
-        self.L_level = SRUpp_(self.config.hidden_size)
+        self.H_level = SRUpp_(self.config.hidden_size, num_layers=self.config.H_layers)
+        self.L_level = SRUpp_(self.config.hidden_size, num_layers=self.config.L_layers)
         
         # Initial states
         self.H_init = nn.Buffer(trunc_normal_init_(torch.empty(self.config.H_layers, 1, self.config.hidden_size, dtype=self.forward_dtype), std=1), persistent=True)
@@ -123,18 +123,18 @@ class HierarchicalReasoningModel_ACTV3_Inner(nn.Module):
         return self.embed_scale * embedding
 
     def empty_carry(self, batch_size: int):
-        return HierarchicalReasoningModel_ACTV2InnerCarry(
+        return HierarchicalReasoningModel_ACTV3InnerCarry(
             z_H=self.H_init.expand(-1, batch_size, -1),
             z_L=self.L_init.expand(-1, batch_size, -1),
         )
         
-    def reset_carry(self, reset_flag: torch.Tensor, carry: HierarchicalReasoningModel_ACTV2InnerCarry):
-        return HierarchicalReasoningModel_ACTV2InnerCarry(
+    def reset_carry(self, reset_flag: torch.Tensor, carry: HierarchicalReasoningModel_ACTV3InnerCarry):
+        return HierarchicalReasoningModel_ACTV3InnerCarry(
             z_H=torch.where(reset_flag.view(1, -1, 1), self.H_init, carry.z_H),
             z_L=torch.where(reset_flag.view(1, -1, 1), self.L_init, carry.z_L),
         )
 
-    def forward(self, carry: HierarchicalReasoningModel_ACTV2InnerCarry, batch: Dict[str, torch.Tensor]) -> Tuple[HierarchicalReasoningModel_ACTV2InnerCarry, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    def forward(self, carry: HierarchicalReasoningModel_ACTV3InnerCarry, batch: Dict[str, torch.Tensor]) -> Tuple[HierarchicalReasoningModel_ACTV3InnerCarry, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         # Input encoding
         input_embeddings = self._input_embeddings(batch["inputs"], batch["puzzle_identifiers"])
 
@@ -143,7 +143,7 @@ class HierarchicalReasoningModel_ACTV3_Inner(nn.Module):
         z_H, z_H_hidden = self.H_level(z_L, carry.z_H)
 
         # LM Outputs
-        new_carry = HierarchicalReasoningModel_ACTV2InnerCarry(z_H=z_H_hidden.detach(), z_L=z_L_hidden.detach())  # New carry no grad
+        new_carry = HierarchicalReasoningModel_ACTV3InnerCarry(z_H=z_H_hidden.detach(), z_L=z_L_hidden.detach())  # New carry no grad
         output = self.lm_head(z_H)[:, self.puzzle_emb_len:]
 
         # Q head
@@ -157,8 +157,8 @@ class HierarchicalReasoningModel_ACTV3(nn.Module):
 
     def __init__(self, config_dict: dict):
         super().__init__()
-        self.config = HierarchicalReasoningModel_ACTV2Config(**config_dict)
-        self.inner = HierarchicalReasoningModel_ACTV2_Inner(self.config)
+        self.config = HierarchicalReasoningModel_ACTV3Config(**config_dict)
+        self.inner = HierarchicalReasoningModel_ACTV3_Inner(self.config)
 
     @property
     def puzzle_emb(self):
@@ -167,7 +167,7 @@ class HierarchicalReasoningModel_ACTV3(nn.Module):
     def initial_carry(self, batch: Dict[str, torch.Tensor]):
         batch_size = batch["inputs"].shape[0]
 
-        return HierarchicalReasoningModel_ACTV2Carry(
+        return HierarchicalReasoningModel_ACTV3Carry(
             inner_carry=self.inner.empty_carry(batch_size),  # Empty is expected, it will be reseted in first pass as all sequences are halted.
             
             steps=torch.zeros((batch_size, ), dtype=torch.int32),
@@ -176,7 +176,7 @@ class HierarchicalReasoningModel_ACTV3(nn.Module):
             current_data={k: torch.empty_like(v) for k, v in batch.items()}
         )
         
-    def forward(self, carry: HierarchicalReasoningModel_ACTV2Carry, batch: Dict[str, torch.Tensor]) -> Tuple[HierarchicalReasoningModel_ACTV2Carry, Dict[str, torch.Tensor]]:
+    def forward(self, carry: HierarchicalReasoningModel_ACTV3Carry, batch: Dict[str, torch.Tensor]) -> Tuple[HierarchicalReasoningModel_ACTV3Carry, Dict[str, torch.Tensor]]:
         # Update data, carry (removing halted sequences)
         new_inner_carry = self.inner.reset_carry(carry.halted, carry.inner_carry)
         
@@ -219,5 +219,5 @@ class HierarchicalReasoningModel_ACTV3(nn.Module):
                 
                 outputs["target_q_continue"] = torch.sigmoid(torch.where(is_last_step, next_q_halt_logits, torch.maximum(next_q_halt_logits, next_q_continue_logits)))
 
-        return HierarchicalReasoningModel_ACTV2Carry(new_inner_carry, new_steps, halted, new_current_data), outputs
+        return HierarchicalReasoningModel_ACTV3Carry(new_inner_carry, new_steps, halted, new_current_data), outputs
 

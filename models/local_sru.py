@@ -332,7 +332,9 @@ class SRUCell(nn.Module):
         layer_norm = self.layer_norm
         if layer_norm is not None:
             if not self.normalize_after:
-                input = layer_norm(input)
+                # Cast to float32 for LayerNorm, then back to original dtype
+                orig_dtype = input.dtype
+                input = layer_norm(input.float()).to(orig_dtype)
 
         # apply dropout for multiplication
         if self.training and (self.rnn_dropout > 0):
@@ -361,7 +363,9 @@ class SRUCell(nn.Module):
 
         if layer_norm is not None:
             if self.normalize_after:
-                h = layer_norm(h)
+                # Cast to float32 for LayerNorm, then back to original dtype
+                orig_dtype = h.dtype
+                h = layer_norm(h.float()).to(orig_dtype)
 
         return h, c
 
@@ -726,8 +730,8 @@ class SRUppProjectedLinear(nn.Module):
         self.out_features = out_features
         self.proj_features = proj_features
         self.dropout = nn.Dropout(dropout)
-        self.linear1 = nn.Linear(in_features, proj_features, bias=False)
-        self.linear2 = nn.Linear(proj_features, out_features, bias=False)
+        self.linear1 = CastedLinear(in_features, proj_features, bias=False)
+        self.linear2 = CastedLinear(proj_features, out_features, bias=False)
         self.layer_norm: Optional[nn.Module] = None
         if layer_norm:
             self.layer_norm = nn.LayerNorm(proj_features)
@@ -750,7 +754,9 @@ class SRUppProjectedLinear(nn.Module):
 
         output = self.linear1(input)
         if self.layer_norm is not None:
-            output = self.layer_norm(output)
+            # Cast to float32 for LayerNorm, then back to original dtype
+            orig_dtype = output.dtype
+            output = self.layer_norm(output.float()).to(orig_dtype)
         output = self.linear2(self.dropout(output))
         return output
 # --- End of SRUppProjectedLinear ---
@@ -803,9 +809,9 @@ class SRUppAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.attn_dropout = float(attn_dropout)
         self.rezero_init_alpha = float(rezero_init_alpha)
-        self.linear1 = nn.Linear(in_features, proj_features, bias=False)
-        self.linear2 = nn.Linear(proj_features, proj_features * 2, bias=False)
-        self.linear3 = nn.Linear(proj_features, out_features, bias=False)
+        self.linear1 = CastedLinear(in_features, proj_features, bias=False)
+        self.linear2 = CastedLinear(proj_features, proj_features * 2, bias=False)
+        self.linear3 = CastedLinear(proj_features, out_features, bias=False)
         self.alpha = nn.Parameter(torch.Tensor([float(rezero_init_alpha)]))  # type: ignore
         self.normalize_after = normalize_after
         self.layer_norm: Optional[nn.Module] = None
@@ -860,7 +866,9 @@ class SRUppAttention(nn.Module):
             layer_norm = self.layer_norm
             if layer_norm is not None:
                 if not self.normalize_after:
-                    z = layer_norm(z)
+                    # Cast to float32 for LayerNorm, then back to original dtype
+                    orig_dtype = z.dtype
+                    z = layer_norm(z.float()).to(orig_dtype)
             q = z[memory.size(0):]
         else:
             mem_len = 0
@@ -868,7 +876,9 @@ class SRUppAttention(nn.Module):
             layer_norm = self.layer_norm
             if layer_norm is not None:
                 if not self.normalize_after:
-                    z = layer_norm(z)
+                    # Cast to float32 for LayerNorm, then back to original dtype
+                    orig_dtype = z.dtype
+                    z = layer_norm(z.float()).to(orig_dtype)
             q = z
 
         # query, key, value
@@ -923,7 +933,9 @@ class SRUppAttention(nn.Module):
         layer_norm = self.layer_norm
         if layer_norm is not None:
             if self.normalize_after:
-                attn_output = layer_norm(attn_output)
+                # Cast to float32 for LayerNorm, then back to original dtype
+                orig_dtype = attn_output.dtype
+                attn_output = layer_norm(attn_output.float()).to(orig_dtype)
 
         # (tgt_len, bsz, out_dim)
         attn_output = self.linear3(self.dropout(attn_output))
@@ -955,7 +967,9 @@ class SRUppCell(SRUCell):
         layer_norm = self.layer_norm
         if layer_norm is not None:
             if not self.normalize_after:
-                input = layer_norm(input)
+                # Cast to float32 for LayerNorm, then back to original dtype
+                orig_dtype = input.dtype
+                input = layer_norm(input.float()).to(orig_dtype)
 
         # apply dropout for multiplication
         if self.training and (self.rnn_dropout > 0):
@@ -987,7 +1001,9 @@ class SRUppCell(SRUCell):
         layer_norm = self.layer_norm
         if layer_norm is not None:
             if self.normalize_after:
-                h = layer_norm(h)
+                # Cast to float32 for LayerNorm, then back to original dtype
+                orig_dtype = h.dtype
+                h = layer_norm(h.float()).to(orig_dtype)
 
         return h, c
 # --- End of SRUppCell ---
