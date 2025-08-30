@@ -1,7 +1,7 @@
 # ARC training config
 
 defaults:
-  - arch: hrm_v1
+  - arch: hrm_v2
   - _self_
 
 hydra:
