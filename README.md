@@ -1,5 +1,10 @@
 # Hierarchical Reasoning Model with Simple Recurrent Unit (SRU)
 
+|Task|Model|Score|
+|----|-----|-----|
+|sudoku extreme 1000|HRM|0.55|
+|sudoku extreme 1000|SRU (4 layers)|0.43|
+
 Reasoning, the process of devising and executing complex goal-oriented action sequences, remains a critical challenge in AI.
 Current large language models (LLMs) primarily employ Chain-of-Thought (CoT) techniques, which suffer from brittle task decomposition, extensive data requirements, and high latency. Inspired by the hierarchical and multi-timescale processing in the human brain, we propose the Hierarchical Reasoning Model (HRM), a novel recurrent architecture that attains significant computational depth while maintaining both training stability and efficiency.
 HRM executes sequential reasoning tasks in a single forward pass without explicit supervision of the intermediate process, through two interdependent recurrent modules: a high-level module responsible for slow, abstract planning, and a low-level module handling rapid, detailed computations. With only 27 million parameters, HRM achieves exceptional performance on complex reasoning tasks using only 1000 training samples. The model operates without pre-training or CoT data, yet achieves nearly perfect performance on challenging tasks including complex Sudoku puzzles and optimal path finding in large mazes.
