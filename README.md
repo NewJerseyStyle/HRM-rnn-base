@@ -24,12 +24,46 @@ This fork implements the **Simple Recurrent Unit (SRU)** as an alternative to th
 
 ### Prerequisites ⚙️
 
-⚠️ **Hardware Compatibility Notice**: This SRU version includes fallback implementations for better hardware compatibility:
+⚠️ **Important Hardware Compatibility Notice**: 
 
-- **Flash Attention**: Falls back to standard PyTorch attention if flash-attn CUDA kernels are incompatible
-- **Adam-Atan2**: Uses pure PyTorch implementation (`adam-atan2-pytorch`) instead of CUDA-optimized version due to potential kernel compatibility issues
+Due to hardware limitations during development (RTX 2060, pre-Ampere architecture), this codebase includes several fallback implementations that may impact performance on modern hardware:
 
-Ensure PyTorch and CUDA are installed. While CUDA extensions are recommended for optimal performance, the fallbacks ensure the code runs on various hardware configurations:
+### Fallback Implementations (Performance Impact)
+
+| Component | Original (Fast) | Fallback (Compatible) | Performance Impact | Affected GPUs |
+|-----------|----------------|----------------------|-------------------|---------------|
+| **Flash Attention** | `flash-attn` CUDA kernels | Standard PyTorch attention | ~2-3x slower | Pre-Ampere GPUs (RTX 20xx, GTX series) |
+| **Adam-Atan2** | CUDA-optimized `adam-atan2` | Pure PyTorch `adam-atan2-pytorch` | ~1.5x slower optimizer steps | GPUs with incompatible CUDA kernels |
+| **Mixed Precision** | bfloat16 | float16 | Minimal, better compatibility | GPUs without native bfloat16 |
+
+### For Users with Modern Hardware (RTX 30xx/40xx, A100, H100)
+
+If you have an Ampere or newer GPU, you can enable optimized implementations for significantly faster training:
+
+```bash
+# Install optimized Flash Attention (for Ampere+ GPUs)
+pip install flash-attn --no-build-isolation
+
+# Run without fallbacks (automatic detection)
+python pretrain.py arch=hrm_v3 ...
+```
+
+### For Users with Older Hardware (RTX 20xx, GTX series)
+
+The fallbacks are automatically enabled for compatibility:
+
+```bash
+# Force fallback mode (if automatic detection fails)
+DISABLE_FLASH_ATTN=1 python pretrain.py arch=hrm_v3 ...
+```
+
+### Environment Variables
+
+- `DISABLE_FLASH_ATTN=1`: Force use of PyTorch attention fallback (for pre-Ampere GPUs)
+- `WANDB_DISABLED=1`: Disable Weights & Biases logging
+- `OMP_NUM_THREADS=N`: Set OpenMP threads (recommended: number of GPUs)
+
+**Note**: The fallback implementations ensure broad hardware compatibility but are not optimized for maximum performance. Users with modern hardware are encouraged to use the original optimized versions when possible.
 
 ```bash
 # Install CUDA 12.6
@@ -157,7 +191,8 @@ OMP_NUM_THREADS=8 torchrun --nproc-per-node=8 pretrain.py [args...]
 **Environment Variables:**
 - `OMP_NUM_THREADS`: Controls CPU threading (recommended: number of GPUs)
 - `CUDA_VISIBLE_DEVICES`: Restricts which GPUs to use (e.g., `CUDA_VISIBLE_DEVICES=0,1,2,3`)
-
+- `WANDB_DISABLED=1 WANDB_MODE=offline`: Disable wandb for testing
+- `DISABLE_FLASH_ATTN=1`: Force fallback mode for flash attention
 ### Train SRU
 By changing argument passed to the training script
 ```bash
