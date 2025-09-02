@@ -3,8 +3,8 @@
 |Task|Model|Score|
 |----|-----|-----|
 |sudoku extreme 1000|HRM (Transformers)|0.55|
-|sudoku extreme 1000|HRM (4 layers of 512 SRU)|0.43|
-|sudoku extreme 1000|HRM (4 layers of 128 SRU++)|0.40 <!-- 0.39765 -->|
+|sudoku extreme 1000|HRM (4 layers SRU dim=512)|0.43|
+|sudoku extreme 1000|HRM (4 layers SRU++ dim=128)|0.40 <!-- 0.39765 -->|
 
 Reasoning, the process of devising and executing complex goal-oriented action sequences, remains a critical challenge in AI.
 Current large language models (LLMs) primarily employ Chain-of-Thought (CoT) techniques, which suffer from brittle task decomposition, extensive data requirements, and high latency. Inspired by the hierarchical and multi-timescale processing in the human brain, we propose the Hierarchical Reasoning Model (HRM), a novel recurrent architecture that attains significant computational depth while maintaining both training stability and efficiency.
