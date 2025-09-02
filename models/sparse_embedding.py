@@ -78,7 +78,10 @@ class CastedSparseEmbeddingSignSGD_Distributed(Optimizer):
                 else:
                     assert False
                 
-            assert local_weights_grad is not None
+            # Skip update if no gradients (can happen when puzzle_emb is not used in this batch)
+            if local_weights_grad is None:
+                continue
+                
             assert local_ids is not None
             assert weights is not None
         

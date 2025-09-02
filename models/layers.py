@@ -5,56 +5,64 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-try:
-    from flash_attn_interface import flash_attn_func
-    HAS_FLASH_ATTN = True
-except ImportError:
+import os
+
+# Allow disabling flash attention via environment variable
+if os.environ.get('DISABLE_FLASH_ATTN', '0') == '1':
+    HAS_FLASH_ATTN = False
+else:
     try:
-        from flash_attn import flash_attn_func
+        from flash_attn_interface import flash_attn_func
         HAS_FLASH_ATTN = True
     except ImportError:
-        HAS_FLASH_ATTN = False
-        # Fallback implementation
-        def flash_attn_func(q, k, v, causal=False, softmax_scale=None):
-            """
-            Fallback implementation of flash attention using standard PyTorch operations.
-            q, k, v: [batch_size, seq_len, num_heads, head_dim]
-            """
-            batch_size, seq_len, num_heads, head_dim = q.shape
-            
-            # Transpose to [batch_size, num_heads, seq_len, head_dim]
-            q = q.transpose(1, 2)
-            k = k.transpose(1, 2)
-            v = v.transpose(1, 2)
-            
-            # Expand k and v if using grouped query attention (num_kv_heads < num_heads)
-            if k.shape[1] < q.shape[1]:
-                num_kv_heads = k.shape[1]
-                num_q_per_kv = q.shape[1] // num_kv_heads
-                k = k.repeat_interleave(num_q_per_kv, dim=1)
-                v = v.repeat_interleave(num_q_per_kv, dim=1)
-            
-            # Compute attention scores
-            if softmax_scale is None:
-                softmax_scale = 1.0 / math.sqrt(head_dim)
-            
-            scores = torch.matmul(q, k.transpose(-2, -1)) * softmax_scale
-            
-            # Apply causal mask if requested
-            if causal:
-                mask = torch.triu(torch.ones(seq_len, seq_len, dtype=torch.bool, device=q.device), diagonal=1)
-                scores = scores.masked_fill(mask.unsqueeze(0).unsqueeze(0), float('-inf'))
-            
-            # Apply softmax
-            attn_weights = F.softmax(scores, dim=-1)
-            
-            # Apply attention to values
-            attn_output = torch.matmul(attn_weights, v)
-            
-            # Transpose back to [batch_size, seq_len, num_heads, head_dim]
-            attn_output = attn_output.transpose(1, 2)
-            
-            return attn_output
+        try:
+            from flash_attn import flash_attn_func
+            HAS_FLASH_ATTN = True
+        except ImportError:
+            HAS_FLASH_ATTN = False
+
+# Fallback implementation when flash attention is not available or disabled
+if not HAS_FLASH_ATTN:
+    def flash_attn_func(q, k, v, causal=False, softmax_scale=None):
+        """
+        Fallback implementation of flash attention using standard PyTorch operations.
+        q, k, v: [batch_size, seq_len, num_heads, head_dim]
+        """
+        batch_size, seq_len, num_heads, head_dim = q.shape
+        
+        # Transpose to [batch_size, num_heads, seq_len, head_dim]
+        q = q.transpose(1, 2)
+        k = k.transpose(1, 2)
+        v = v.transpose(1, 2)
+        
+        # Expand k and v if using grouped query attention (num_kv_heads < num_heads)
+        if k.shape[1] < q.shape[1]:
+            num_kv_heads = k.shape[1]
+            num_q_per_kv = q.shape[1] // num_kv_heads
+            k = k.repeat_interleave(num_q_per_kv, dim=1)
+            v = v.repeat_interleave(num_q_per_kv, dim=1)
+        
+        # Compute attention scores
+        if softmax_scale is None:
+            softmax_scale = 1.0 / math.sqrt(head_dim)
+        
+        scores = torch.matmul(q, k.transpose(-2, -1)) * softmax_scale
+        
+        # Apply causal mask if requested
+        if causal:
+            mask = torch.triu(torch.ones(seq_len, seq_len, dtype=torch.bool, device=q.device), diagonal=1)
+            scores = scores.masked_fill(mask.unsqueeze(0).unsqueeze(0), float('-inf'))
+        
+        # Apply softmax
+        attn_weights = F.softmax(scores, dim=-1)
+        
+        # Apply attention to values
+        attn_output = torch.matmul(attn_weights, v)
+        
+        # Transpose back to [batch_size, seq_len, num_heads, head_dim]
+        attn_output = attn_output.transpose(1, 2)
+        
+        return attn_output
 
 from models.common import trunc_normal_init_
 
@@ -186,8 +194,9 @@ class Attention(nn.Module):
         if isinstance(attn_output, tuple):  # fa2 and fa3 compatibility
             attn_output = attn_output[0]
 
-        # attn_output: [batch_size, num_heads, seq_len, head_dim]
-        attn_output = attn_output.view(batch_size, seq_len, self.output_size)  # type: ignore
+        # attn_output: [batch_size, seq_len, num_heads, head_dim]
+        # Make contiguous and reshape to [batch_size, seq_len, output_size]
+        attn_output = attn_output.contiguous().view(batch_size, seq_len, self.output_size)  # type: ignore
         return self.o_proj(attn_output)
 
 
