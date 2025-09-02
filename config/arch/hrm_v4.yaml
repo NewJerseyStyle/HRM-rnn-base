@@ -1,0 +1,26 @@
+name: hrm.hrm_act_v4@HierarchicalReasoningModel_ACTV4
+loss:
+  name: losses@ACTLossHead
+  loss_type: stablemax_cross_entropy
+
+halt_exploration_prob: 0.1
+halt_max_steps: 2 # was 8  # Fewer steps needed due to powerful diffusion refinement
+
+# Diffusion settings
+diffusion_timesteps: 1000  # Number of diffusion timesteps for training
+diffusion_inference_steps: 10  # Greatly reduced DDIM steps for memory efficiency
+
+# Architecture layers  
+H_layers: 2  # Reduced diffusion blocks to save memory
+L_layers: 4  # Reduced SRU layers for memory
+
+hidden_size: 512  # Reduced hidden size for memory
+num_heads: 8  # Reduced heads
+expansion: 2  # Reduced expansion for memory
+
+puzzle_emb_ndim: ${.hidden_size}
+
+pos_encodings: rope
+
+# Use float16 for better memory efficiency
+forward_dtype: float16
