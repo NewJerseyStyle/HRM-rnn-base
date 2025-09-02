@@ -9,7 +9,7 @@ halt_max_steps: 16
 H_layers: 4
 L_layers: 4
 
-hidden_size: 256
+hidden_size: 512
 num_heads: 8  # min(2, hidden_size // 64)
 expansion: 4
 
