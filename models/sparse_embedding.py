@@ -16,7 +16,7 @@ class CastedSparseEmbedding(nn.Module):
         # Real Weights
         # Truncated LeCun normal init
         self.weights = nn.Buffer(
-            trunc_normal_init_(torch.empty((num_embeddings, embedding_dim)), std=init_std), persistent=True
+            trunc_normal_init_(torch.empty((num_embeddings, embedding_dim), device='cpu'), std=init_std), persistent=True
         )
 
         # Local weights and IDs
