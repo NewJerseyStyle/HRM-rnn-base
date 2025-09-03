@@ -1,0 +1,29 @@
+name: hrm.hrm_act_v4@HierarchicalReasoningModel_ACTV4
+loss:
+  name: losses@ACTLossHead
+  loss_type: stablemax_cross_entropy
+
+halt_exploration_prob: 0.1
+halt_max_steps: 4  # Increased for TPU's larger batch processing
+
+# Diffusion settings
+diffusion_timesteps: 1000  # Number of diffusion timesteps for training
+diffusion_inference_steps: 20  # Balanced for TPU efficiency
+
+# Architecture layers - TPU v3-8 can handle larger models
+H_layers: 4  # More layers for TPU's compute power
+L_layers: 6  # More SRU layers
+
+hidden_size: 512  # Good size for TPU v3
+num_heads: 8  # TPU-friendly number
+expansion: 4  # TPU can handle more expansion
+
+puzzle_emb_ndim: ${.hidden_size}
+
+pos_encodings: rope
+
+# Use bfloat16 for TPU v3 (optimal dtype for TPU)
+forward_dtype: bfloat16
+
+# TPU-specific batch size (should be multiple of 8 for TPU v3-8)
+batch_size: 128  # Large batch for TPU efficiency
