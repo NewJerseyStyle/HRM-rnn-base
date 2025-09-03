@@ -1,6 +1,12 @@
 from typing import Tuple
 import math
 
+try:
+    import torch_xla.core.xla_model as xm
+    TPU_AVAILABLE = True
+except ImportError:
+    TPU_AVAILABLE = False
+
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -63,6 +69,7 @@ if not HAS_FLASH_ATTN:
         attn_output = attn_output.transpose(1, 2)
         
         return attn_output
+
 
 from models.common import trunc_normal_init_
 
@@ -132,8 +139,16 @@ class CastedEmbedding(nn.Module):
         self.cast_to = cast_to
 
         # Truncated LeCun normal init
+        # Get the appropriate device (CPU for TPU initialization)
+        if TPU_AVAILABLE:
+            device = torch.device('cpu')  # TPU tensors are typically initialized on CPU then moved
+        elif torch.cuda.is_available():
+            device = torch.device('cuda')
+        else:
+            device = torch.device('cpu')
+
         self.embedding_weight = nn.Parameter(
-            trunc_normal_init_(torch.empty((num_embeddings, embedding_dim)), std=init_std)
+            trunc_normal_init_(torch.empty((num_embeddings, embedding_dim), device=device), std=init_std)
         )
         
     def forward(self, input: torch.Tensor) -> torch.Tensor:
