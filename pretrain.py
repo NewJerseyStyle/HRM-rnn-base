@@ -105,6 +105,27 @@ def create_dataloader(config: PretrainConfig, split: str, rank: int, world_size:
     return dataloader, dataset.metadata
 
 
+# Add this before create_model function
+def setup_device():
+    try:
+        import torch_xla.core.xla_model as xm
+        if xm.get_xla_supported_devices():
+            device = xm.xla_device()
+            print(f"Using TPU device: {device}")
+            return device
+    except ImportError:
+        pass
+    
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+        print(f"Using CUDA device: {device}")
+    else:
+        device = torch.device('cpu')
+        print(f"Using CPU device: {device}")
+    
+    return device
+
+
 def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, world_size: int):
     model_cfg = dict(
         **config.arch.__pydantic_extra__,  # type: ignore
@@ -184,6 +205,7 @@ def init_train_state(config: PretrainConfig, train_metadata: PuzzleDatasetMetada
     total_steps = int(config.epochs * train_metadata.total_groups * train_metadata.mean_puzzle_examples / config.global_batch_size)
 
     # Model
+    device = setup_device()
     model, optimizers, optimizer_lrs = create_model(config, train_metadata, world_size=world_size)
 
     return TrainState(
