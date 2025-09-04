@@ -20,3 +20,6 @@ pos_encodings: rope
 
 # Use bfloat16 for TPU v3 (optimal dtype for TPU)
 forward_dtype: bfloat16
+
+# Use TPU-optimized SRU
+use_tpu_sru: true  # Flag to use TPU SRU in model code
