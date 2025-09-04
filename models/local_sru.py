@@ -31,9 +31,16 @@ def elementwise_recurrence_naive(
 ) -> List[Tensor]:
     """Elementwise forward operation of SRU in pure Python.
     """
-    # Only warn if actually running on CPU (not GPU) with gradients enabled
-    if torch.is_grad_enabled() and not U.is_cuda:
+    # Only warn if actually running on CPU (not GPU/TPU) with gradients enabled
+    # Check if it's actually CPU, not just non-CUDA (TPU is also non-CUDA)
+    device_type = str(U.device).split(':')[0]
+    if torch.is_grad_enabled() and device_type == 'cpu':
         warnings.warn("Running SRU on CPU with grad_enabled=True. Are you sure?")
+    
+    # Debug: Log device information
+    import os
+    if os.environ.get('DEBUG_DEVICE', '0') == '1':
+        print(f"SRU forward - U device: {U.device}, x device: {x.device if x is not None else 'None'}")
     elif not torch.is_grad_enabled():
         # This part is for inference, which calls a JIT compiled version.
         # Since we are doing pure Python, we will just implement the loop directly.
@@ -263,11 +270,13 @@ class SRUCell(nn.Module):
                 )
         self.transform_module: nn.Module = transform_module
 
-        self.weight_c = nn.Parameter(torch.Tensor(2 * self.output_size))
-        self.bias = nn.Parameter(torch.Tensor(2 * self.output_size))
+        # Use CPU device for initialization to avoid CUDA/TPU issues
+        device = torch.device('cpu')
+        self.weight_c = nn.Parameter(torch.empty(2 * self.output_size, device=device))
+        self.bias = nn.Parameter(torch.zeros(2 * self.output_size, device=device))
 
         # scaling constant used in highway connections when rescale=True
-        self.register_buffer('scale_x', torch.FloatTensor([0]))
+        self.register_buffer('scale_x', torch.tensor([0.0], device=device))
 
         self.layer_norm: Optional[nn.Module] = None
         if layer_norm:
