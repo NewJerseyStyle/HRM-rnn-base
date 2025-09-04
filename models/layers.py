@@ -1,12 +1,6 @@
 from typing import Tuple
 import math
 
-try:
-    import torch_xla.core.xla_model as xm
-    TPU_AVAILABLE = True
-except ImportError:
-    TPU_AVAILABLE = False
-
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -70,7 +64,6 @@ if not HAS_FLASH_ATTN:
         
         return attn_output
 
-
 from models.common import trunc_normal_init_
 
 
@@ -109,19 +102,25 @@ class CastedLinear(nn.Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
+        
+        # Determine the appropriate device (CPU for initialization, will be moved later)
+        # Using CPU for initialization avoids CUDA/TPU issues
+        device = torch.device('cpu')
+        
         # Truncated LeCun normal init
         self.weight = nn.Parameter(
-            trunc_normal_init_(torch.empty((out_features, in_features)), std=1.0 / (in_features ** 0.5))
+            trunc_normal_init_(torch.empty((out_features, in_features), device=device), std=1.0 / (in_features ** 0.5))
         )
         self.bias = None
         if bias:
             # Zero init bias
-            self.bias = nn.Parameter(torch.zeros((out_features, )))
+            self.bias = nn.Parameter(torch.zeros((out_features, ), device=device))
 
     def reset_parameters(self):
         """Reset parameters to their initial values."""
         std = 1.0 / (self.in_features ** 0.5)
-        self.weight.data = trunc_normal_init_(torch.empty_like(self.weight), std=std)
+        # Use the same device as the existing weight
+        self.weight.data = trunc_normal_init_(torch.empty_like(self.weight, device=self.weight.device), std=std)
         if self.bias is not None:
             self.bias.data.zero_()
 
@@ -138,15 +137,8 @@ class CastedEmbedding(nn.Module):
         super().__init__()
         self.cast_to = cast_to
 
-        # Truncated LeCun normal init
-        # Get the appropriate device (CPU for TPU initialization)
-        if TPU_AVAILABLE:
-            device = torch.device('cpu')  # TPU tensors are typically initialized on CPU then moved
-        elif torch.cuda.is_available():
-            device = torch.device('cuda')
-        else:
-            device = torch.device('cpu')
-
+        # Truncated LeCun normal init (use CPU to avoid device issues)
+        device = torch.device('cpu')
         self.embedding_weight = nn.Parameter(
             trunc_normal_init_(torch.empty((num_embeddings, embedding_dim), device=device), std=init_std)
         )
@@ -159,6 +151,10 @@ class RotaryEmbedding(nn.Module):
     def __init__(self, dim, max_position_embeddings, base, device=None):
         super().__init__()
 
+        # Use CPU if no device specified to avoid CUDA/TPU issues
+        if device is None:
+            device = torch.device('cpu')
+        
         # RoPE
         inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, dtype=torch.float32, device=device) / dim))
         t = torch.arange(max_position_embeddings, dtype=torch.float32, device=device)
