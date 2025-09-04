@@ -280,10 +280,12 @@ class SRUCell(nn.Module):
 
         self.layer_norm: Optional[nn.Module] = None
         if layer_norm:
+            # Use CPU device for LayerNorm initialization to avoid CUDA/TPU issues
+            device = torch.device('cpu')
             if normalize_after:
-                self.layer_norm = nn.LayerNorm(self.output_size)
+                self.layer_norm = nn.LayerNorm(self.output_size, device=device)
             else:
-                self.layer_norm = nn.LayerNorm(self.input_size)
+                self.layer_norm = nn.LayerNorm(self.input_size, device=device)
 
         self.reset_parameters()
 
@@ -743,7 +745,9 @@ class SRUppProjectedLinear(nn.Module):
         self.linear2 = CastedLinear(proj_features, out_features, bias=False)
         self.layer_norm: Optional[nn.Module] = None
         if layer_norm:
-            self.layer_norm = nn.LayerNorm(proj_features)
+            # Use CPU device for LayerNorm initialization to avoid CUDA/TPU issues
+            device = torch.device('cpu')
+            self.layer_norm = nn.LayerNorm(proj_features, device=device)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -821,11 +825,14 @@ class SRUppAttention(nn.Module):
         self.linear1 = CastedLinear(in_features, proj_features, bias=False)
         self.linear2 = CastedLinear(proj_features, proj_features * 2, bias=False)
         self.linear3 = CastedLinear(proj_features, out_features, bias=False)
-        self.alpha = nn.Parameter(torch.Tensor([float(rezero_init_alpha)]))  # type: ignore
+        # Use CPU device for initialization to avoid CUDA/TPU issues
+        device = torch.device('cpu')
+        self.alpha = nn.Parameter(torch.tensor([float(rezero_init_alpha)], device=device))  # type: ignore
         self.normalize_after = normalize_after
         self.layer_norm: Optional[nn.Module] = None
         if layer_norm:
-            self.layer_norm = nn.LayerNorm(proj_features)
+            # Create LayerNorm with explicit device to avoid CUDA initialization
+            self.layer_norm = nn.LayerNorm(proj_features, device=device)
 
         if proj_features % num_heads != 0:
             raise ValueError("proj_features ({}) must be divisible by num_heads ({})".format(
