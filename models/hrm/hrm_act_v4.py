@@ -98,14 +98,18 @@ class DDIMSampler(nn.Module):
         self.num_timesteps = num_timesteps
         self.num_inference_steps = num_inference_steps
         
+        # Use CPU device to avoid CUDA/TPU issues during initialization
+        device = torch.device('cpu')
+        
         # Create beta schedule (linear for simplicity, can use cosine)
-        self.register_buffer('betas', torch.linspace(0.0001, 0.02, num_timesteps))
-        self.register_buffer('alphas', 1.0 - self.betas)
-        self.register_buffer('alphas_cumprod', torch.cumprod(self.alphas, dim=0))
+        betas = torch.linspace(0.0001, 0.02, num_timesteps, device=device)
+        self.register_buffer('betas', betas)
+        self.register_buffer('alphas', 1.0 - betas)
+        self.register_buffer('alphas_cumprod', torch.cumprod(1.0 - betas, dim=0))
         
         # DDIM sampling timesteps
         step_ratio = num_timesteps // num_inference_steps
-        timesteps = torch.arange(0, num_timesteps, step_ratio)
+        timesteps = torch.arange(0, num_timesteps, step_ratio, device=device)
         self.register_buffer('timesteps', timesteps.flip(0))  # Reverse for denoising
         
     def get_time_embedding(self, timesteps: torch.Tensor, dim: int) -> torch.Tensor:
@@ -307,7 +311,9 @@ class HierarchicalReasoningModel_ACTV4_Inner(nn.Module):
         self.H_level = DiffusionHLevel(self.config)
         
         # Initial states
-        self.L_init = nn.Buffer(trunc_normal_init_(torch.empty(self.config.L_layers, 1, self.config.hidden_size, dtype=self.forward_dtype), std=1), persistent=True)
+        # Use CPU device to avoid CUDA/TPU issues during initialization
+        device = torch.device('cpu')
+        self.L_init = nn.Buffer(trunc_normal_init_(torch.empty(self.config.L_layers, 1, self.config.hidden_size, dtype=self.forward_dtype, device=device), std=1), persistent=True)
         
         # LM Head
         self.lm_head = CastedLinear(config.hidden_size, config.vocab_size, bias=False)
@@ -392,12 +398,13 @@ class HierarchicalReasoningModel_ACTV4(nn.Module):
 
     def initial_carry(self, batch: Dict[str, torch.Tensor]):
         batch_size = batch["inputs"].shape[0]
+        device = batch["inputs"].device
 
         return HierarchicalReasoningModel_ACTV4Carry(
             inner_carry=self.inner.empty_carry(batch_size),
             
-            steps=torch.zeros((batch_size, ), dtype=torch.int32),
-            halted=torch.ones((batch_size, ), dtype=torch.bool),  # Default to halted
+            steps=torch.zeros((batch_size, ), dtype=torch.int32, device=device),
+            halted=torch.ones((batch_size, ), dtype=torch.bool, device=device),  # Default to halted
             
             current_data={k: torch.empty_like(v) for k, v in batch.items()}
         )
