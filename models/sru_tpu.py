@@ -52,13 +52,25 @@ class SRU_TPU(nn.Module):
         """
         seq_len, batch_size, _ = input.shape
         
-        # Initialize hidden states if not provided
+        # Initialize hidden states if not provided or wrong batch size
         if hidden is None:
             hidden = input.new_zeros(
                 self.num_layers * self.num_directions, 
                 batch_size, 
                 self.hidden_size
             )
+        elif hidden.shape[1] != batch_size:
+            # Handle batch size mismatch
+            if hidden.shape[1] == 1:
+                # Expand from single batch to full batch
+                hidden = hidden.expand(-1, batch_size, -1)
+            else:
+                # Use zeros if size mismatch
+                hidden = input.new_zeros(
+                    self.num_layers * self.num_directions, 
+                    batch_size, 
+                    self.hidden_size
+                )
         
         output = input
         new_hidden = []
@@ -140,9 +152,18 @@ class SRUCell_TPU(nn.Module):
             o_gate = o_gate.flip(0)
             x_highway = x_highway.flip(0)
         
-        # Initialize hidden state
+        # Initialize hidden state - ensure batch size matches
         h = []
-        c = h_init
+        # If h_init has wrong batch size, expand or slice it
+        if h_init.shape[0] != batch_size:
+            if h_init.shape[0] == 1:
+                # Expand from single batch to full batch
+                c = h_init.expand(batch_size, -1)
+            else:
+                # Use zeros if size mismatch
+                c = gates.new_zeros(batch_size, hidden_size)
+        else:
+            c = h_init
         
         # Process sequence (simplified for TPU)
         # Use scan-like operation that TPU can optimize better
