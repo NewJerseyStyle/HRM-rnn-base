@@ -19,3 +19,5 @@ pos_encodings: rope
 
 # Use float16 for better memory efficiency
 forward_dtype: float16
+
+use_tpu_sru: true  # Flag to use TPU SRU in model code
