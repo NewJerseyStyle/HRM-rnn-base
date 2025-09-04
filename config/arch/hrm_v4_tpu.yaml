@@ -24,3 +24,5 @@ pos_encodings: rope
 
 # Use bfloat16 for TPU v3 (optimal dtype for TPU)
 forward_dtype: bfloat16
+
+use_tpu_sru: true
