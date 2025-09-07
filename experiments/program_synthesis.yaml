@@ -1,0 +1,84 @@
+# Configuration for Program Synthesis with GRPO
+
+# Project settings
+project_name: "hrm-program-synthesis"
+run_name: "hrm-v4-grpo-${data.dataset}"
+use_wandb: true
+output_dir: "outputs/program_synthesis"
+
+# Model configuration
+model:
+  name: hrm.hrm_act_v4_simple@HierarchicalReasoningModel_ACTV4Simple
+  hidden_size: 512
+  num_heads: 8
+  expansion: 3
+  H_layers: 4  # Refinement layers for reasoning
+  L_layers: 6  # SRU layers for sequential processing
+  refinement_steps: 8  # More steps for complex reasoning
+  halt_max_steps: 16
+  halt_exploration_prob: 0.1
+  forward_dtype: float16
+  puzzle_emb_ndim: 512  # Can be used for problem embeddings
+  seq_len: 512  # Maximum sequence length
+
+# Tokenizer
+tokenizer_name: "Salesforce/codet5-base"  # Or "microsoft/codebert-base"
+
+# Data configuration
+data:
+  dataset: "humaneval"  # Options: humaneval, mbpp, apps
+  train_path: "data/program_synthesis/train.jsonl"
+  eval_path: "data/program_synthesis/eval.jsonl"
+  test_path: "data/program_synthesis/test.jsonl"
+  max_length: 512
+  use_ast_aware: true
+  use_reasoning: true
+  language: "python"
+
+# GRPO configuration
+grpo:
+  group_size: 4
+  reward_scale: 1.0
+  kl_penalty: 0.01
+  baseline_type: "group_mean"
+  reward_shaping: true
+  partial_credit: true
+  reasoning_weight: 0.3
+  learning_rate: 3e-4
+  batch_size: 16
+  gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
+  eval_interval: 100
+  save_interval: 1000
+
+# Training configuration
+training:
+  num_epochs: 50
+  batch_size: 16
+  learning_rate: 3e-4
+  warmup_steps: 1000
+  log_interval: 10
+  eval_interval: 100
+  save_interval: 1000
+  gradient_checkpointing: true
+  mixed_precision: true
+
+# Evaluation configuration
+evaluation:
+  num_samples: 100
+  temperature: 0.8
+  top_p: 0.95
+  max_generation_length: 512
+  
+# Specific configurations for different datasets
+humaneval:
+  num_problems: 164
+  pass_at_k: [1, 10, 100]
+  
+mbpp:
+  num_problems: 974
+  categories: ["basic", "intermediate", "advanced"]
+  
+apps:
+  difficulty_levels: ["introductory", "interview", "competition"]
+  max_time_per_problem: 600  # seconds
