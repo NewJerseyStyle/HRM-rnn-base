@@ -52,9 +52,6 @@ class ARCHRMv2Model(nn.Module):
         self.config = HierarchicalReasoningModel_ACTV2Config(**config_dict)
         self.model = HRM_ACT_V2(config_dict)
 
-        # Output projection for grid prediction
-        self.output_proj = nn.Linear(config_dict['hidden_size'], num_colors + 1)  # +1 for padding
-
         # Special tokens
         self.start_token = num_colors + 1
         self.end_token = num_colors + 2
@@ -123,9 +120,9 @@ class ARCHRMv2Model(nn.Module):
         # Forward through HRM model
         carry, outputs_dict = self.model(carry, batch_dict)
 
-        # Get hidden states and project to output space
-        hidden = outputs_dict.get("hidden", outputs_dict.get("logits"))
-        logits = self.output_proj(hidden)
+        # The model returns vocabulary logits directly, not hidden states
+        # We'll use those logits directly instead of projecting
+        logits = outputs_dict.get("logits")
 
         result = {'logits': logits}
 
@@ -222,8 +219,7 @@ class ARCHRMv2Model(nn.Module):
 
                 # Forward pass
                 _, outputs_dict = self.model(carry, batch_dict)
-                hidden = outputs_dict.get("hidden", outputs_dict.get("logits"))
-                logits = self.output_proj(hidden)
+                logits = outputs_dict.get("logits")
 
                 # Get next token logits
                 next_token_logits = logits[:, -1, :] / temperature
