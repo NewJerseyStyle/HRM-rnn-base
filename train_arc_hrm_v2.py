@@ -31,8 +31,13 @@ from models.arc_hrm_v2 import ARCHRMv2Model
 
 def setup_distributed(rank: int, world_size: int):
     """Initialize distributed training"""
-    os.environ['MASTER_ADDR'] = os.environ.get('MASTER_ADDR', 'localhost')
-    os.environ['MASTER_PORT'] = os.environ.get('MASTER_PORT', '12355')
+    os.environ['MASTER_ADDR'] = os.environ.get('MASTER_ADDR', '127.0.0.1')
+    os.environ['MASTER_PORT'] = os.environ.get('MASTER_PORT', '29500')
+
+    # For single node multi-GPU, ensure we're using the right address
+    if 'SLURM_NODELIST' not in os.environ:
+        os.environ['MASTER_ADDR'] = '127.0.0.1'
+
     dist.init_process_group(backend='nccl', rank=rank, world_size=world_size)
     torch.cuda.set_device(rank)
 
@@ -531,11 +536,11 @@ def main():
     parser.add_argument('--config_path', type=str, default='config/arch/hrm_v2.yaml')
 
     # Training arguments
-    parser.add_argument('--batch_size', type=int, default=8, help='Batch size per GPU')
+    parser.add_argument('--batch_size', type=int, default=4, help='Batch size per GPU')
     parser.add_argument('--num_epochs', type=int, default=100)
     parser.add_argument('--learning_rate', type=float, default=1e-4)
     parser.add_argument('--weight_decay', type=float, default=0.01)
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=4)
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=8)
     parser.add_argument('--max_grad_norm', type=float, default=1.0)
 
     # Scheduler
