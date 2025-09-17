@@ -20,7 +20,8 @@ from torch.utils.data import DataLoader, DistributedSampler
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.multiprocessing as mp
-from torch.cuda.amp import GradScaler, autocast
+from torch.cuda.amp import GradScaler
+from torch.amp import autocast
 
 import numpy as np
 from tqdm import tqdm
@@ -105,7 +106,7 @@ def train_epoch(
         )
 
         # Mixed precision training
-        with autocast():
+        with autocast('cuda'):
             outputs = model(input_grids, output_grids, task_ids)
             loss = outputs['loss']
 
@@ -177,7 +178,7 @@ def validate(
                 device=device
             )
 
-            with autocast():
+            with autocast('cuda'):
                 outputs = model(input_grids, output_grids, task_ids)
                 loss = outputs['loss']
 
