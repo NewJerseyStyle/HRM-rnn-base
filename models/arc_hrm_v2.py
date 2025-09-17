@@ -36,6 +36,11 @@ class ARCHRMv2Model(nn.Module):
         self.pad_token = num_colors  # Use color 10 as padding
         self.device = device
 
+        # Resolve template variables
+        if 'puzzle_emb_ndim' in config_dict and isinstance(config_dict['puzzle_emb_ndim'], str):
+            if config_dict['puzzle_emb_ndim'] == '${.hidden_size}':
+                config_dict['puzzle_emb_ndim'] = config_dict['hidden_size']
+
         # Update config for ARC
         config_dict['vocab_size'] = num_colors + 3  # 0-9 colors + padding + start/end tokens
         config_dict['batch_size'] = 1  # Will be overridden during training
