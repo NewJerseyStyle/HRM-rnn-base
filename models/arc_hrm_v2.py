@@ -43,9 +43,10 @@ class ARCHRMv2Model(nn.Module):
 
         # Update config for ARC
         config_dict['vocab_size'] = num_colors + 3  # 0-9 colors + padding + start/end tokens
-        config_dict['batch_size'] = 1  # Will be overridden during training
+        config_dict['batch_size'] = 32  # Set a max batch size for the embedding buffer
         config_dict['seq_len'] = max_grid_size * max_grid_size * 2  # Input + output grids
-        config_dict['num_puzzle_identifiers'] = 1000  # Support up to 1000 different ARC tasks
+        config_dict['num_puzzle_identifiers'] = 0  # Disable puzzle embeddings to avoid batch size issues
+        config_dict['puzzle_emb_ndim'] = 0  # Disable puzzle embeddings
 
         # Create HRM v2 model
         self.config = HierarchicalReasoningModel_ACTV2Config(**config_dict)
@@ -110,9 +111,10 @@ class ARCHRMv2Model(nn.Module):
         sequence, attention_mask = self.encode_grid_sequence(input_grid, output_grid)
 
         # Prepare batch dict for HRM model
+        # Since puzzle embeddings are disabled, just use zeros
         batch_dict = {
             "inputs": sequence,
-            "puzzle_identifiers": task_ids if task_ids is not None else torch.zeros(batch_size, dtype=torch.long, device=device)
+            "puzzle_identifiers": torch.zeros(batch_size, dtype=torch.long, device=device)
         }
 
         # Initialize carry state
@@ -152,6 +154,7 @@ class ARCHRMv2Model(nn.Module):
     def _init_carry(self, batch_size: int, device: torch.device) -> HierarchicalReasoningModel_ACTV2InnerCarry:
         """Initialize inner carry state"""
         hidden_size = self.config.hidden_size
+        # Use actual batch size, not config batch size
         z_H = torch.zeros(self.config.H_layers, batch_size, hidden_size, device=device)
         z_L = torch.zeros(self.config.L_layers, batch_size, hidden_size, device=device)
         return HierarchicalReasoningModel_ACTV2InnerCarry(z_H=z_H, z_L=z_L)
@@ -211,7 +214,7 @@ class ARCHRMv2Model(nn.Module):
                 # Prepare batch dict
                 batch_dict = {
                     "inputs": generated,
-                    "puzzle_identifiers": task_id if task_id is not None else torch.zeros(batch_size, dtype=torch.long, device=device)
+                    "puzzle_identifiers": torch.zeros(batch_size, dtype=torch.long, device=device)
                 }
 
                 # Initialize carry for this step
