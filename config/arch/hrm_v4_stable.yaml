@@ -1,0 +1,27 @@
+name: hrm.hrm_act_v4_stable@HierarchicalReasoningModel_ACTV4Stable
+loss:
+  name: losses@ACTLossHead
+  loss_type: stablemax_cross_entropy
+
+halt_exploration_prob: 0.1
+halt_max_steps: 2
+
+# Architecture layers - optimized for T4 GPU
+H_layers: 2  # Number of diffusion refinement blocks
+L_layers: 4  # SRU layers for sequential processing
+
+hidden_size: 128  # Moderate size for T4 GPU
+num_heads: 8  # 256/32 = 8 heads
+expansion: 3
+
+# Diffusion parameters
+diffusion_timesteps: 10  # Total diffusion steps
+diffusion_sampling_timesteps: 2  # Steps during inference
+diffusion_dim: 64  # Internal diffusion dimension (smaller for stability)
+
+puzzle_emb_ndim: ${.hidden_size}
+
+pos_encodings: rope
+
+# Use float16 for T4 GPU (better than bfloat16 on T4)
+forward_dtype: float16

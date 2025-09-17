@@ -1,0 +1,22 @@
+name: hrm.hrm_act_v3@HierarchicalReasoningModel_ACTV3
+loss:
+  name: losses@ACTLossHead
+  loss_type: stablemax_cross_entropy
+
+halt_exploration_prob: 0.1
+halt_max_steps: 16
+
+# Architecture layers - TPU v3 can handle larger models
+H_layers: 8  # Increased for TPU compute power
+L_layers: 8  # Increased for TPU efficiency
+
+hidden_size: 768  # Larger size for TPU v3
+num_heads: 12  # TPU-friendly number (768/64)
+expansion: 4  # TPU can handle higher expansion
+
+puzzle_emb_ndim: ${.hidden_size}
+
+pos_encodings: rope
+
+# Use bfloat16 for TPU v3 (optimal dtype for TPU)
+forward_dtype: bfloat16

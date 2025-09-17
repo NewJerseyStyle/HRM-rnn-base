@@ -13,18 +13,26 @@ class CastedSparseEmbedding(nn.Module):
         super().__init__()
         self.cast_to = cast_to
 
+        # Use CPU device to avoid CUDA/TPU issues during initialization
+        device = torch.device('cpu')
+        
         # Real Weights
         # Truncated LeCun normal init
         self.weights = nn.Buffer(
-            trunc_normal_init_(torch.empty((num_embeddings, embedding_dim)), std=init_std), persistent=True
+            trunc_normal_init_(torch.empty((num_embeddings, embedding_dim), device=device), std=init_std), persistent=True
         )
 
         # Local weights and IDs
-        # Local embeddings, with gradient, not persistent
-        self.local_weights = nn.Buffer(torch.zeros(batch_size, embedding_dim, requires_grad=True), persistent=False)
+        # Local embeddings, with gradient (use Parameter for gradient tracking)
+        self.local_weights = nn.Parameter(torch.zeros(batch_size, embedding_dim, device=device), requires_grad=True)
         # Local embedding IDs, not persistent
-        self.local_ids = nn.Buffer(torch.zeros(batch_size, dtype=torch.int32), persistent=False)
+        self.local_ids = nn.Buffer(torch.zeros(batch_size, dtype=torch.int32, device=device), persistent=False)
 
+    def get_optimizer_params(self):
+        """Return all tensors needed by the optimizer."""
+        # Return local_weights (Parameter), local_ids (Buffer), weights (Buffer)
+        return [self.local_weights, self.local_ids, self.weights]
+    
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         if not self.training:
             # Test mode, no gradient

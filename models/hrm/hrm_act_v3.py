@@ -12,6 +12,7 @@ from models.common import trunc_normal_init_
 from models.layers import rms_norm, SwiGLU, Attention, RotaryEmbedding, CosSin, CastedEmbedding, CastedLinear
 from models.sparse_embedding import CastedSparseEmbedding
 from models.srupp import SRUpp_
+import os
 
 
 @dataclass
@@ -87,12 +88,19 @@ class HierarchicalReasoningModel_ACTV3_Inner(nn.Module):
             raise NotImplementedError()
 
         # Reasoning Layers
-        self.H_level = SRUpp_(self.config.hidden_size, num_layers=self.config.H_layers)
-        self.L_level = SRUpp_(self.config.hidden_size, num_layers=self.config.L_layers)
+        # Use TPU-optimized SRU if environment variable is set
+        if os.environ.get('USE_TPU_SRU', '0') == '1':
+            from models.sru_tpu import SRU_TPU
+            self.H_level = SRU_TPU(self.config.hidden_size, self.config.hidden_size, num_layers=self.config.H_layers)
+            self.L_level = SRU_TPU(self.config.hidden_size, self.config.hidden_size, num_layers=self.config.L_layers)
+        else:
+            self.H_level = SRUpp_(self.config.hidden_size, num_layers=self.config.H_layers)
+            self.L_level = SRUpp_(self.config.hidden_size, num_layers=self.config.L_layers)
         
-        # Initial states
-        self.H_init = nn.Buffer(trunc_normal_init_(torch.empty(self.config.H_layers, 1, self.config.hidden_size, dtype=self.forward_dtype), std=1), persistent=True)
-        self.L_init = nn.Buffer(trunc_normal_init_(torch.empty(self.config.L_layers, 1, self.config.hidden_size, dtype=self.forward_dtype), std=1), persistent=True)
+        # Initial states - use CPU device to avoid CUDA/TPU issues
+        device = torch.device('cpu')
+        self.H_init = nn.Buffer(trunc_normal_init_(torch.empty(self.config.H_layers, 1, self.config.hidden_size, dtype=self.forward_dtype, device=device), std=1), persistent=True)
+        self.L_init = nn.Buffer(trunc_normal_init_(torch.empty(self.config.L_layers, 1, self.config.hidden_size, dtype=self.forward_dtype, device=device), std=1), persistent=True)
 
         # Q head special init
         # Init Q to (almost) zero for faster learning during bootstrapping
