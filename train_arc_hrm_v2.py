@@ -20,8 +20,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.multiprocessing as mp
-from torch.cuda.amp import GradScaler
-from torch.amp import autocast
+from torch.amp import autocast, GradScaler
 
 import numpy as np
 from tqdm import tqdm
@@ -286,8 +285,8 @@ def train_distributed(rank: int, world_size: int, args):
     # Create model
     model = ARCHRMv2Model(args.config_path, device=device).to(device)
 
-    # Wrap model in DDP
-    model = DDP(model, device_ids=[rank])
+    # Wrap model in DDP with find_unused_parameters=True since we disabled puzzle embeddings
+    model = DDP(model, device_ids=[rank], find_unused_parameters=True)
 
     # Optimizer and scheduler
     optimizer = optim.AdamW(
@@ -312,7 +311,7 @@ def train_distributed(rank: int, world_size: int, args):
         scheduler = None
 
     # Gradient scaler for mixed precision
-    scaler = GradScaler()
+    scaler = GradScaler('cuda')
 
     # Load checkpoint if specified
     start_epoch = 0
@@ -370,6 +369,9 @@ def train_distributed(rank: int, world_size: int, args):
                 checkpoint_path = os.path.join(args.output_dir, f'checkpoint-epoch{epoch+1}.pt')
                 save_checkpoint(model, optimizer, scheduler, scaler, epoch + 1, -1, checkpoint_path)
 
+    # Cleanup distributed training
+    if rank == 0:
+        print("Training completed successfully!")
     cleanup_distributed()
 
 
@@ -444,7 +446,7 @@ def train_single_gpu(args):
         scheduler = None
 
     # Gradient scaler for mixed precision
-    scaler = GradScaler()
+    scaler = GradScaler('cuda')
 
     # Training loop
     best_val_loss = float('inf')
